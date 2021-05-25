@@ -15,10 +15,10 @@ import (
  */
 
 // ApplicationName is the task list for this sample
-const ApplicationName = "transferGroup"
+const ApplicationName = "helloWorldGroup"
 
 // WorkflowName ...
-const WorkflowName = "transferWorkflow"
+const WorkflowName = "helloWordWorkflow"
 
 // SignalName is the signal name that workflow is waiting for
 const SignalName = "trigger-signal"
