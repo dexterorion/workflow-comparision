@@ -14,7 +14,6 @@ import (
 
 	"github.com/uber-go/tally"
 	"go.uber.org/cadence/.gen/go/cadence/workflowserviceclient"
-	"go.uber.org/cadence/client"
 	"go.uber.org/cadence/worker"
 	"go.uber.org/cadence/workflow"
 	"go.uber.org/yarpc"
@@ -34,11 +33,7 @@ var CadenceClientName = "cadence-client"
 
 func main() {
 	var mode string
-	var text string
-	var executionID string
 	flag.StringVar(&mode, "m", "trigger", "Mode is worker, trigger or shadower.")
-	flag.StringVar(&executionID, "id", "id", "Workflow exection ID.")
-	flag.StringVar(&text, "text", "Anything", "Text to be shown. Exit finishes workflow")
 	flag.Parse()
 
 	switch mode {
@@ -121,24 +116,6 @@ func startServer(service workflowserviceclient.Interface) {
 	// to finalize based on context cancellation.
 	sugar.Infow("shutting down")
 	os.Exit(0)
-}
-
-func sendSignal(service workflowserviceclient.Interface, executionID, text string) {
-	ctx := context.Background()
-
-	logger := buildLogger()
-
-	var workflowClient client.Client = client.NewClient(
-		service, Domain, &client.Options{Identity: "local-mac-vinny", MetricsScope: tally.NoopScope, ContextPropagators: []workflow.ContextPropagator{}})
-
-	err := workflowClient.SignalWorkflow(ctx, executionID, "", wf.SignalName, text)
-
-	if err != nil {
-		logger.Error("Failed to send signal", zap.Error(err))
-		panic("Failed to send signal.")
-	} else {
-		logger.Info("Signal sent", zap.String("WorkflowID", executionID), zap.String("Text", text))
-	}
 }
 
 func buildLogger() *zap.Logger {

@@ -25,7 +25,7 @@ func NewWorkflowHandler(router *mux.Router, business business.WorkflowBusiness) 
 func (p *workflowHandlerImpl) buildRoutes() {
 	router := p.router.PathPrefix("/workflows").Subrouter()
 
-	router.Handle("start", p.StartWorkflow()).Methods("POST")
+	router.Handle("/start", p.StartWorkflow()).Methods("POST")
 }
 
 func (p *workflowHandlerImpl) StartWorkflow() http.Handler {

@@ -15,18 +15,18 @@ import (
  */
 
 // ApplicationName is the task list for this sample
-const ApplicationName = "helloWorldGroup"
+const ApplicationName = "transferGroup"
 
 // WorkflowName ...
-const WorkflowName = "helloWordWorkflow"
+const WorkflowName = "transferWorkflow"
 
-// SignalName is the signal name that workflow is waiting for
-const SignalName = "trigger-signal"
+// TransferName is the transfer name that workflow is waiting for
+const TransferName = "trigger-transfer"
 
-// SignalWorkflow workflow decider
-func SignalWorkflow(ctx workflow.Context, name string) error {
+// TransferWorkflow workflow decider
+func TransferWorkflow(ctx workflow.Context, name string) error {
 	logger := workflow.GetLogger(ctx)
-	logger.Info("signal workflow started")
+	logger.Info("transfer workflow started")
 
 	ao := workflow.ActivityOptions{
 		ScheduleToStartTimeout: time.Minute,
@@ -35,37 +35,37 @@ func SignalWorkflow(ctx workflow.Context, name string) error {
 	}
 	ctx = workflow.WithActivityOptions(ctx, ao)
 
-	var signalResult string
-	err := workflow.ExecuteActivity(ctx, SignalActivity, name).Get(ctx, &signalResult)
+	var transferResult string
+	err := workflow.ExecuteActivity(ctx, TransferActivity, name).Get(ctx, &transferResult)
 	if err != nil {
 		logger.Error("Activity failed.", zap.Error(err))
 		return err
 	}
 
-	ch := workflow.GetSignalChannel(ctx, SignalName)
+	ch := workflow.GetSignalChannel(ctx, TransferName)
 	for {
-		var signal string
-		if more := ch.Receive(ctx, &signal); !more {
-			logger.Info("Signal channel closed")
-			return cadence.NewCustomError("signal_channel_closed")
+		var transfer string
+		if more := ch.Receive(ctx, &transfer); !more {
+			logger.Info("Transfer channel closed")
+			return cadence.NewCustomError("transfer_channel_closed")
 		}
 
-		logger.Info("Signal received.", zap.String("signal", signal))
+		logger.Info("Transfer received.", zap.String("transfer", transfer))
 
-		if signal == "exit" {
+		if transfer == "exit" {
 			break
 		}
 
-		logger.Sugar().Infow("Data received via signal", "data", signal)
+		logger.Sugar().Infow("Data received via transfer", "data", transfer)
 	}
 
-	logger.Info("Workflow completed.", zap.String("Result", signalResult))
+	logger.Info("Workflow completed.", zap.String("Result", transferResult))
 
 	return nil
 }
 
-func SignalActivity(ctx context.Context, name string) (string, error) {
+func TransferActivity(ctx context.Context, name string) (string, error) {
 	logger := activity.GetLogger(ctx)
-	logger.Info("signal activity started")
+	logger.Info("transfer activity started")
 	return "Hello " + name + "!", nil
 }
