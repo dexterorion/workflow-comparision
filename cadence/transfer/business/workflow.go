@@ -16,6 +16,8 @@ import (
 	"go.uber.org/cadence/client"
 	"go.uber.org/cadence/workflow"
 	"go.uber.org/zap"
+
+	"avenuesec/workflow-poc/cadence/transfer/helpers/model"
 )
 
 // WorkflowBusiness represents the workflow business
@@ -30,7 +32,7 @@ type workflowBusinessImpl struct {
 	domain  string
 }
 
-func NewWorkflowBusiness(service workflowserviceclient.Interface, domain string) WorkflowBusiness {
+func NewWorkflowBusiness(service workflowserviceclient.Interface, domain string, amqpConfig model.AmqpConfig) WorkflowBusiness {
 	logger, _ := zap.NewProduction()
 	logger = logger.Named("workflow")
 
@@ -38,7 +40,7 @@ func NewWorkflowBusiness(service workflowserviceclient.Interface, domain string)
 		logger:  logger.Sugar(),
 		service: service,
 		domain:  domain,
-		rabbit:  rabbitmq.GetConnection(),
+		rabbit:  rabbitmq.GetConnection(amqpConfig),
 	}
 
 	go bizz.installHandler()

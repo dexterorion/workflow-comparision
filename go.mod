@@ -5,7 +5,6 @@ go 1.12
 require (
 	github.com/gogo/googleapis v1.3.1 // indirect
 	github.com/gogo/status v1.1.0 // indirect
-	github.com/google/go-cmp v0.5.1 // indirect
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/pborman/uuid v1.2.0
@@ -24,11 +23,9 @@ require (
 	go.uber.org/yarpc v1.42.0
 	go.uber.org/zap v1.13.0
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
-	golang.org/x/text v0.3.4 // indirect
+	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c // indirect
 	golang.org/x/tools v0.1.1 // indirect
-	google.golang.org/genproto v0.0.0-20200804131852-c06518451d9c // indirect
-	google.golang.org/grpc v1.31.0 // indirect
-	google.golang.org/protobuf v1.25.0 // indirect
+	google.golang.org/api v0.47.0 // indirect
 	honnef.co/go/tools v0.0.1-2020.1.4 // indirect
 )
 

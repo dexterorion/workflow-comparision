@@ -1,8 +1,10 @@
 package rabbitmq
 
 import (
+	"avenuesec/workflow-poc/cadence/transfer/helpers/model"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 
 	"github.com/streadway/amqp"
@@ -19,8 +21,9 @@ type AmqpConnection struct {
 	channel *amqp.Channel
 }
 
-func GetConnection() AmqpConnection {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/avenue")
+func GetConnection(amqpConfig model.AmqpConfig) AmqpConnection {
+	c := fmt.Sprintf("amqp://%s:%s@%s:%d/%s", amqpConfig.User, amqpConfig.Password, amqpConfig.Host, amqpConfig.Port, amqpConfig.VHost)
+	conn, err := amqp.Dial(c)
 	failOnError(err, "Failed to connect to RabbitMQ")
 
 	ch, err := conn.Channel()

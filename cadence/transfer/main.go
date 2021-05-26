@@ -23,19 +23,70 @@ import (
 	wf "avenuesec/workflow-poc/cadence/signal/workflow"
 	"avenuesec/workflow-poc/cadence/transfer/business"
 	"avenuesec/workflow-poc/cadence/transfer/handlers"
+	"avenuesec/workflow-poc/cadence/transfer/helpers/model"
+	"avenuesec/workflow-poc/cadence/transfer/helpers/security"
 )
 
-var HostPort = "127.0.0.1:7933"
+var HostPort = "cadence-server:7933"
 var Domain = "simpledomain"
 var ClientName = "simpleworker"
 var CadenceService = "cadence-frontend"
 var CadenceClientName = "cadence-client"
 
-func main() {
-	var mode string
-	flag.StringVar(&mode, "m", "trigger", "Mode is worker, trigger or shadower.")
-	flag.Parse()
+var (
+	flagUser  string
+	flagPwd   string
+	flagVHost string
+	flagHost  string
+	flagPort  = 5672
+	mode      string
+)
 
+func InitWithFlagSet(flagSet *flag.FlagSet) {
+	flagSet.StringVar(&flagUser, "rmq_user", "guest", "")
+	flagSet.StringVar(&flagPwd, "rmq_pwd", "guest", "")
+	flagSet.StringVar(&flagVHost, "rmq_vhost", "avenue", "")
+	flagSet.StringVar(&flagHost, "rmq_host", "localhost", "")
+	flagSet.IntVar(&flagPort, "rmq_port", 5672, "")
+}
+
+func GetEnvOrDefault(key string, defaultValue string) string {
+	val := os.Getenv(key)
+
+	if val == "" {
+		return defaultValue
+	}
+
+	return val
+}
+
+func AmqpConfigFromFlags() model.AmqpConfig {
+
+	pwd := security.DecryptIf(GetEnvOrDefault("AVENUE_GCLOUD_ID", "trading-dev-201715"), flagPwd)
+
+	return model.AmqpConfig{
+		User:     flagUser,
+		Password: pwd,
+		Host:     flagHost,
+		Port:     flagPort,
+		VHost:    flagVHost,
+	}
+}
+
+func InitFromEnvSet() {
+	flagUser = GetEnvOrDefault("rmq_user", "guest")
+	flagPwd = GetEnvOrDefault("rmq_pwd", "guest")
+	flagVHost = GetEnvOrDefault("rmq_vhost", "avenue")
+	flagHost = GetEnvOrDefault("rmq_host", "localhost")
+}
+
+func init() {
+	flag.StringVar(&mode, "m", "trigger", "Mode is worker, trigger or shadower.")
+	InitWithFlagSet(flag.CommandLine)
+	flag.Parse()
+}
+
+func main() {
 	switch mode {
 	case "worker":
 		startWorker(buildLogger(), buildCadenceClient())
@@ -49,8 +100,8 @@ func main() {
 	}
 }
 
-func getHandler(service workflowserviceclient.Interface) *mux.Router {
-	svc := business.NewWorkflowBusiness(service, Domain)
+func getHandler(service workflowserviceclient.Interface, amqpConfig model.AmqpConfig) *mux.Router {
+	svc := business.NewWorkflowBusiness(service, Domain, amqpConfig)
 
 	r := handlers.NewHandler(svc)
 
@@ -68,6 +119,8 @@ func withCors(r *mux.Router) http.Handler {
 }
 
 func startServer(service workflowserviceclient.Interface) {
+	amqpConfig := AmqpConfigFromFlags()
+
 	logger := buildLogger()
 	defer logger.Sync()
 
@@ -85,7 +138,7 @@ func startServer(service workflowserviceclient.Interface) {
 		WriteTimeout: time.Second * 15,
 		ReadTimeout:  time.Second * 15,
 		IdleTimeout:  time.Second * 60,
-		Handler:      withCors(getHandler(service)), // Pass our instance of gorilla/mux in.
+		Handler:      withCors(getHandler(service, amqpConfig)), // Pass our instance of gorilla/mux in.
 	}
 
 	// Run our server in a goroutine so that it doesn't block.
