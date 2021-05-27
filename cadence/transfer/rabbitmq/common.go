@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/streadway/amqp"
 )
 
@@ -43,6 +44,29 @@ func GetConnection(amqpConfig model.AmqpConfig) AmqpConnection {
 		channel: ch,
 		queue:   q,
 	}
+}
+
+func (a AmqpConnection) ProduceStruct(ctx context.Context, message proto.Message) error {
+	msgName := proto.MessageName(message)
+
+	msg, err := proto.Marshal(message)
+	failOnError(err, "Faailed to marshal a message")
+
+	// The message content is a byte array, so you can encode whatever you like there.
+	err = a.channel.Publish(
+		"",           // exchange
+		a.queue.Name, // routing key
+		false,        // mandatory
+		false,        // immediate
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        msg,
+			Type:        msgName,
+		})
+	log.Printf(" [x] Sent %s, with type %s", message, msgName)
+	failOnError(err, "Failed to publish a message")
+
+	return nil
 }
 
 func (a AmqpConnection) Produce(ctx context.Context, message interface{}) error {

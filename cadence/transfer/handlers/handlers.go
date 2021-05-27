@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"avenuesec/workflow-poc/cadence/transfer/business"
+	"avenuesec/workflow-poc/cadence/transfer/rabbitmq"
 
 	"github.com/gorilla/mux"
 )
@@ -14,10 +14,10 @@ type handleImpl struct {
 	router *mux.Router
 }
 
-func NewHandler(svc business.WorkflowBusiness) Handler {
+func NewHandler(rabbit rabbitmq.AmqpConnection) Handler {
 	router := mux.NewRouter().PathPrefix("/api").Subrouter()
 
-	NewWorkflowHandler(router, svc)
+	NewTransferHandler(router, rabbit)
 
 	return &handleImpl{
 		router,

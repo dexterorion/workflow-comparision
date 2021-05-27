@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+option go_package = "/;protog";
+
+package avenue.common;
+
+enum AccountType {
+    USA = 0;
+    BankCash = 1;
+}
+
+enum EntryKind {
+    Block = 0;
+    Unblock = 1;
+    Debit = 2;
+    Credit = 3;
+}
+
+enum Direction {
+    SdToBank = 0;
+}
+
+message Message {}
+
+message NewTransferMessage {
+    double amount = 1;
+    string from_acc_id = 2;
+    string to_acc_id = 3;
+    string execution_id = 4;
+    Direction direction = 5;
+}
+
+message Transfer {
+    double amount = 1;
+    string from_acc_id = 2;
+    string to_acc_id = 3;
+    string execution_id = 4;
+    Direction direction = 5;
+    string status = 6;
+}
+
+message ApexWithdrawMessage {
+    double amount = 1;
+    string apex_acc_id = 2;
+    string execution_id = 3;
+    Direction direction = 4;
+}
+
+message AddEntry {
+    double amount = 1;
+    string acc_id = 2;
+    EntryKind kind = 3;
+    string execution_id = 4;
+}

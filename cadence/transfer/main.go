@@ -20,14 +20,16 @@ import (
 	"go.uber.org/yarpc/transport/tchannel"
 	"go.uber.org/zap"
 
-	wf "avenuesec/workflow-poc/cadence/signal/workflow"
 	"avenuesec/workflow-poc/cadence/transfer/business"
 	"avenuesec/workflow-poc/cadence/transfer/handlers"
 	"avenuesec/workflow-poc/cadence/transfer/helpers/model"
 	"avenuesec/workflow-poc/cadence/transfer/helpers/security"
+	"avenuesec/workflow-poc/cadence/transfer/rabbitmq"
+	"avenuesec/workflow-poc/cadence/transfer/redis"
+	wf "avenuesec/workflow-poc/cadence/transfer/workflow"
 )
 
-var HostPort = "cadence-server:7933"
+var HostPort = "cadence-frontend:7933"
 var Domain = "simpledomain"
 var ClientName = "simpleworker"
 var CadenceService = "cadence-frontend"
@@ -77,7 +79,7 @@ func InitFromEnvSet() {
 	flagUser = GetEnvOrDefault("rmq_user", "guest")
 	flagPwd = GetEnvOrDefault("rmq_pwd", "guest")
 	flagVHost = GetEnvOrDefault("rmq_vhost", "avenue")
-	flagHost = GetEnvOrDefault("rmq_host", "localhost")
+	flagHost = GetEnvOrDefault("rmq_host", "rabbitmq")
 }
 
 func init() {
@@ -101,9 +103,13 @@ func main() {
 }
 
 func getHandler(service workflowserviceclient.Interface, amqpConfig model.AmqpConfig) *mux.Router {
-	svc := business.NewWorkflowBusiness(service, Domain, amqpConfig)
+	rabbit := rabbitmq.GetConnection(amqpConfig)
+	rd := redis.NewRedisConnection()
 
-	r := handlers.NewHandler(svc)
+	r := handlers.NewHandler(rabbit)
+
+	bizz := business.NewSdToBankService(rabbit, rd, service, Domain)
+	handlers.NewConsumer(rabbit, bizz)
 
 	return r.GetRouter()
 }
@@ -119,7 +125,7 @@ func withCors(r *mux.Router) http.Handler {
 }
 
 func startServer(service workflowserviceclient.Interface) {
-	amqpConfig := AmqpConfigFromFlags()
+	// amqpConfig := AmqpConfigFromFlags()
 
 	logger := buildLogger()
 	defer logger.Sync()
@@ -138,7 +144,13 @@ func startServer(service workflowserviceclient.Interface) {
 		WriteTimeout: time.Second * 15,
 		ReadTimeout:  time.Second * 15,
 		IdleTimeout:  time.Second * 60,
-		Handler:      withCors(getHandler(service, amqpConfig)), // Pass our instance of gorilla/mux in.
+		Handler: withCors(getHandler(service, model.AmqpConfig{
+			User:     "guest",
+			Password: "guest",
+			VHost:    "avenue",
+			Host:     "rabbitmq",
+			Port:     5672,
+		})), // Pass our instance of gorilla/mux in.
 	}
 
 	// Run our server in a goroutine so that it doesn't block.
@@ -206,22 +218,38 @@ func startWorker(logger *zap.Logger, service workflowserviceclient.Interface) {
 	// It could be your group or client or application name.
 	workerOptions := worker.Options{
 		Logger:       logger,
-		MetricsScope: tally.NewTestScope(wf.ApplicationName, map[string]string{}),
+		MetricsScope: tally.NewTestScope(business.SdToBankApplicationName, map[string]string{}),
 	}
 
 	worker := worker.New(
 		service,
 		Domain,
-		wf.ApplicationName,
+		business.SdToBankApplicationName,
 		workerOptions)
 
-	worker.RegisterWorkflowWithOptions(wf.SignalWorkflow, workflow.RegisterOptions{Name: wf.WorkflowName})
-	worker.RegisterActivity(wf.SignalActivity)
+	rabbit := rabbitmq.GetConnection(model.AmqpConfig{
+		User:     "guest",
+		Password: "guest",
+		VHost:    "avenue",
+		Host:     "rabbitmq",
+		Port:     5672,
+	})
+	rd := redis.NewRedisConnection()
+	bizz := business.NewSdToBankService(rabbit, rd, service, Domain)
+
+	sdToBankWf := wf.NewSdToBankWorkflow(bizz)
+
+	worker.RegisterWorkflowWithOptions(sdToBankWf.SdToBankWorkflow, workflow.RegisterOptions{Name: business.SdToBankWorkflowName})
+	worker.RegisterActivity(sdToBankWf.Block)
+	worker.RegisterActivity(sdToBankWf.Credit)
+	worker.RegisterActivity(sdToBankWf.JournalWithdraw)
+	worker.RegisterActivity(sdToBankWf.UnblockDebit)
+	worker.RegisterActivity(sdToBankWf.Validate)
 
 	err := worker.Start()
 	if err != nil {
 		panic("Failed to start worker")
 	}
 
-	logger.Info("Started Worker.", zap.String("worker", wf.ApplicationName))
+	logger.Info("Started Worker.", zap.String("worker", business.SdToBankApplicationName))
 }
