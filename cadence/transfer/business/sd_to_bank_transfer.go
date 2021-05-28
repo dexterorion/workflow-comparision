@@ -34,6 +34,7 @@ const (
 
 type SdToBankService interface {
 	StartTransfer(ctx context.Context, message *pb.NewTransferMessage) error
+	Block(ctx context.Context, message *pb.Transfer) error
 	GetTransferInformation(ctx context.Context, workflowID string) (*pb.Transfer, error)
 }
 
@@ -85,6 +86,10 @@ func (s *sdToBankServiceImpl) StartTransfer(ctx context.Context, message *pb.New
 	}
 
 	return s.sendSignal(ctx, we.ID, string(SdToBankSignalStartValidate))
+}
+
+func (s *sdToBankServiceImpl) Block(ctx context.Context, message *pb.Transfer) error {
+	return s.sendSignal(ctx, message.ExecutionId, string(SdToBankSignalStartBlock))
 }
 
 func (s *sdToBankServiceImpl) GetTransferInformation(ctx context.Context, workflowID string) (*pb.Transfer, error) {

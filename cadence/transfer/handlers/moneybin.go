@@ -4,7 +4,6 @@ import (
 	"avenuesec/workflow-poc/cadence/transfer/business"
 	pb "avenuesec/workflow-poc/cadence/transfer/common/protogen"
 	"avenuesec/workflow-poc/cadence/transfer/rabbitmq"
-	"context"
 	"fmt"
 	"log"
 	"reflect"
@@ -13,23 +12,23 @@ import (
 	"go.uber.org/zap"
 )
 
-type Consumer interface {
+type MoneyBinConsumer interface {
 }
 
-type consumerImpl struct {
-	rabbit      rabbitmq.AmqpConnection
-	sdToBankSvc business.SdToBankService
-	logger      *zap.SugaredLogger
+type moneyBinConsumerImpl struct {
+	rabbit  rabbitmq.AmqpConnection
+	service business.MoneyBinService
+	logger  *zap.SugaredLogger
 }
 
-func NewConsumer(rabbit rabbitmq.AmqpConnection, sdToBankSvc business.SdToBankService) Consumer {
+func NewMoneyBinConsumer(rabbit rabbitmq.AmqpConnection, service business.AccountService) MoneyBinConsumer {
 	logger, _ := zap.NewProduction()
-	logger = logger.Named("consumer")
+	logger = logger.Named("moneybin_consumer")
 
-	consumer := &consumerImpl{
-		rabbit:      rabbit,
-		sdToBankSvc: sdToBankSvc,
-		logger:      logger.Sugar(),
+	consumer := &moneyBinConsumerImpl{
+		rabbit:  rabbit,
+		service: service,
+		logger:  logger.Sugar(),
 	}
 
 	go consumer.installHandlers()
@@ -37,7 +36,7 @@ func NewConsumer(rabbit rabbitmq.AmqpConnection, sdToBankSvc business.SdToBankSe
 	return consumer
 }
 
-func (c *consumerImpl) installHandlers() {
+func (c *moneyBinConsumerImpl) installHandlers() {
 	consumer := c.rabbit.GetChannel()
 
 	msgs, err := consumer.Consume(
@@ -80,14 +79,12 @@ func (c *consumerImpl) installHandlers() {
 			}
 
 			switch messageType {
-			case reflect.TypeOf(&pb.NewTransferMessage{}):
-				c.sdToBankSvc.StartTransfer(context.Background(), message.(*pb.NewTransferMessage))
-			case reflect.TypeOf(&pb.ApexWithdrawResponse{}):
+			case reflect.TypeOf(&pb.AddEntry{}):
 
 			}
 		}
 	}()
 
-	c.logger.Info(" [*] Waiting for messages. To exit press CTRL+C")
+	c.logger.Info(" [*] MoneyBin Waiting for messages. To exit press CTRL+C")
 	<-forever
 }

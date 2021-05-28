@@ -243,12 +243,11 @@ func startWorker(logger *zap.Logger, service workflowserviceclient.Interface) {
 	balSvc := business.NewBalanceService(rd, accCh)
 	accSvc := business.NewAccountService(rd, accCh)
 
-	sdToBankWf := wf.NewSdToBankWorkflow(bizz, balSvc, accSvc)
+	sdToBankWf := wf.NewSdToBankWorkflow(bizz, balSvc, accSvc, rabbit)
 
 	worker.RegisterWorkflowWithOptions(sdToBankWf.SdToBankWorkflow, workflow.RegisterOptions{Name: business.SdToBankWorkflowName})
-	worker.RegisterActivity(sdToBankWf.Block)
+	worker.RegisterActivity(sdToBankWf.BlockAndJournal)
 	worker.RegisterActivity(sdToBankWf.Credit)
-	worker.RegisterActivity(sdToBankWf.JournalWithdraw)
 	worker.RegisterActivity(sdToBankWf.UnblockDebit)
 	worker.RegisterActivity(sdToBankWf.Validate)
 

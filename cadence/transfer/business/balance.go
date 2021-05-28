@@ -13,6 +13,7 @@ import (
 
 type BalanceService interface {
 	GetBalance(id string) (*pb.BalanceInformation, error)
+	UpdateBalace(id string, value float64) error
 }
 
 type balanceServiceImpl struct {
@@ -94,4 +95,25 @@ func (s *balanceServiceImpl) GetBalance(id string) (*pb.BalanceInformation, erro
 	err = proto.Unmarshal([]byte(result), &b)
 
 	return &b, err
+}
+
+func (s *balanceServiceImpl) UpdateBalace(id string, value float64) error {
+	balance, err := s.GetBalance(id)
+	if err != nil {
+		return err
+	}
+
+	balance.Available -= value
+
+	str, err := proto.Marshal(balance)
+	if err != nil {
+		return err
+	}
+
+	status := s.redis.GetConn().Set(context.Background(), fmt.Sprintf("balance_%s", balance.AccountId), str, time.Duration(1000*time.Hour))
+	if status != nil && status.Err() != nil {
+		return status.Err()
+	}
+
+	return nil
 }

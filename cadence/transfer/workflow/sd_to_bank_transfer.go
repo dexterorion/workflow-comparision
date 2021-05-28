@@ -3,6 +3,7 @@ package workflow
 import (
 	"avenuesec/workflow-poc/cadence/transfer/business"
 	pb "avenuesec/workflow-poc/cadence/transfer/common/protogen"
+	"avenuesec/workflow-poc/cadence/transfer/rabbitmq"
 	"fmt"
 
 	"context"
@@ -17,14 +18,16 @@ type SdToBankWorkflow struct {
 	service business.SdToBankService
 	balance business.BalanceService
 	account business.AccountService
+	rabbit  rabbitmq.AmqpConnection
 	logger  *zap.SugaredLogger
 }
 
-func NewSdToBankWorkflow(service business.SdToBankService, balance business.BalanceService, account business.AccountService) SdToBankWorkflow {
+func NewSdToBankWorkflow(service business.SdToBankService, balance business.BalanceService, account business.AccountService, rabbit rabbitmq.AmqpConnection) SdToBankWorkflow {
 	return SdToBankWorkflow{
 		service: service,
 		account: account,
 		balance: balance,
+		rabbit:  rabbit,
 	}
 }
 
@@ -65,9 +68,7 @@ func (s *SdToBankWorkflow) SdToBankWorkflow(ctx workflow.Context) error {
 		case business.SdToBankSignalStartValidate:
 			err = workflow.ExecuteActivity(ctx, s.Validate, transfer).Get(ctx, &result)
 		case business.SdToBankSignalStartBlock:
-			err = workflow.ExecuteActivity(ctx, s.Block, transfer).Get(ctx, &result)
-		case business.SdToBankSignalStartJournal:
-			err = workflow.ExecuteActivity(ctx, s.JournalWithdraw, transfer).Get(ctx, &result)
+			err = workflow.ExecuteActivity(ctx, s.BlockAndJournal, transfer).Get(ctx, &result)
 		case business.SdToBankSignalStartUnblockDebit:
 			err = workflow.ExecuteActivity(ctx, s.UnblockDebit, transfer).Get(ctx, &result)
 		case business.SdToBankSignalStartCredit:
@@ -111,12 +112,33 @@ func (s *SdToBankWorkflow) Validate(ctx context.Context, msg *pb.Transfer) (stri
 	return "has_balance", nil
 }
 
-func (s *SdToBankWorkflow) Block(ctx context.Context, msg *pb.Transfer) (string, error) {
-	return "", nil
-}
+func (s *SdToBankWorkflow) BlockAndJournal(ctx context.Context, msg *pb.Transfer) (string, error) {
+	s.logger.Info("Blocking Transfer request")
 
-func (s *SdToBankWorkflow) JournalWithdraw(ctx context.Context, msg *pb.Transfer) (string, error) {
-	return "", nil
+	accInfo, err := s.account.GetAccount(msg.AccId)
+	if err != nil {
+		s.logger.Errorw("Error getting account", "acc_id", msg.AccId, "err", err)
+		return "error_account", err
+	}
+
+	err = s.balance.UpdateBalace(accInfo.AccountUsId, msg.Amount)
+	if err != nil {
+		return "error_update_balance", err
+	}
+
+	journal := &pb.ApexWithdrawMessage{
+		Amount:      msg.Amount,
+		ExecutionId: msg.ExecutionId,
+		Direction:   msg.Direction,
+		ApexAccId:   "",
+	}
+
+	err = s.rabbit.ProduceStruct(ctx, journal)
+	if err != nil {
+		return "error_sending_journal", err
+	}
+
+	return "value_blocked", nil
 }
 
 func (s *SdToBankWorkflow) UnblockDebit(ctx context.Context, msg *pb.Transfer) (string, error) {

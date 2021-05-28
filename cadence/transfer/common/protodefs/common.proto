@@ -16,6 +16,14 @@ enum EntryKind {
     Credit = 3;
 }
 
+enum ApexStatus {
+    Requested = 0;
+    Concluded = 1;
+    Postponed = 2;
+    Fundsposted = 3;
+    Canceled = 4;
+}
+
 enum Direction {
     SdToBank = 0;
 }
@@ -41,6 +49,14 @@ message ApexWithdrawMessage {
     string apex_acc_id = 2;
     string execution_id = 3;
     Direction direction = 4;
+}
+
+message ApexWithdrawResponse {
+    double amount = 1;
+    string apex_acc_id = 2;
+    string execution_id = 3;
+    Direction direction = 4;
+    ApexStatus status = 5;
 }
 
 message AddEntry {
