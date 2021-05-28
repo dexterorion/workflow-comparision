@@ -24,19 +24,16 @@ message Message {}
 
 message NewTransferMessage {
     double amount = 1;
-    string from_acc_id = 2;
-    string to_acc_id = 3;
-    string execution_id = 4;
-    Direction direction = 5;
+    string acc_id = 2;
+    Direction direction = 3;
 }
 
 message Transfer {
     double amount = 1;
-    string from_acc_id = 2;
-    string to_acc_id = 3;
-    string execution_id = 4;
-    Direction direction = 5;
-    string status = 6;
+    string acc_id = 2;
+    string execution_id = 3;
+    Direction direction = 4;
+    string status = 5;
 }
 
 message ApexWithdrawMessage {
@@ -51,4 +48,14 @@ message AddEntry {
     string acc_id = 2;
     EntryKind kind = 3;
     string execution_id = 4;
+}
+
+message AccountInformation {
+    string account_us_id = 1;
+    string account_bank_id = 2;
+}
+
+message BalanceInformation {
+    string account_id = 1;
+    double available = 2;
 }

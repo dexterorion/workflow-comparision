@@ -88,7 +88,7 @@ func (s *sdToBankServiceImpl) StartTransfer(ctx context.Context, message *pb.New
 }
 
 func (s *sdToBankServiceImpl) GetTransferInformation(ctx context.Context, workflowID string) (*pb.Transfer, error) {
-	result, err := s.redis.Conn.Get(ctx, fmt.Sprintf("sdtobank_%s", workflowID)).Result()
+	result, err := s.redis.GetConn().Get(ctx, fmt.Sprintf("sdtobank_%s", workflowID)).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -102,9 +102,8 @@ func (s *sdToBankServiceImpl) GetTransferInformation(ctx context.Context, workfl
 func (s *sdToBankServiceImpl) newTransfer(ctx context.Context, message *pb.NewTransferMessage, workflowID string) error {
 	transfer := &pb.Transfer{
 		Amount:      message.Amount,
-		FromAccId:   message.FromAccId,
-		ToAccId:     message.ToAccId,
-		ExecutionId: message.ExecutionId,
+		AccId:       message.AccId,
+		ExecutionId: workflowID,
 		Direction:   message.Direction,
 		Status:      "starting",
 	}
@@ -114,7 +113,7 @@ func (s *sdToBankServiceImpl) newTransfer(ctx context.Context, message *pb.NewTr
 		return err
 	}
 
-	status := s.redis.Conn.Set(ctx, fmt.Sprintf("sdtobank_%s", workflowID), str, time.Duration(1000*time.Hour))
+	status := s.redis.GetConn().Set(ctx, fmt.Sprintf("sdtobank_%s", workflowID), str, time.Duration(1000*time.Hour))
 	if status != nil && status.Err() != nil {
 		return status.Err()
 	}

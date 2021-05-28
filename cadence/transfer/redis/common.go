@@ -4,7 +4,12 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-type RedisConnection struct {
+type RedisConnection interface {
+	GetConn() *redis.Client
+	NoKeyError(err error) bool
+}
+
+type redisConnectionImpl struct {
 	Conn *redis.Client
 }
 
@@ -15,7 +20,19 @@ func NewRedisConnection() RedisConnection {
 		DB:       0,       // use default DB
 	})
 
-	return RedisConnection{
+	return &redisConnectionImpl{
 		Conn: rdb,
 	}
+}
+
+func (r *redisConnectionImpl) GetConn() *redis.Client {
+	return r.Conn
+}
+
+func (r *redisConnectionImpl) NoKeyError(err error) bool {
+	if err == redis.Nil {
+		return true
+	}
+
+	return false
 }

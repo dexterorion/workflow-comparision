@@ -21,6 +21,7 @@ import (
 	"go.uber.org/zap"
 
 	"avenuesec/workflow-poc/cadence/transfer/business"
+	pb "avenuesec/workflow-poc/cadence/transfer/common/protogen"
 	"avenuesec/workflow-poc/cadence/transfer/handlers"
 	"avenuesec/workflow-poc/cadence/transfer/helpers/model"
 	"avenuesec/workflow-poc/cadence/transfer/helpers/security"
@@ -237,7 +238,12 @@ func startWorker(logger *zap.Logger, service workflowserviceclient.Interface) {
 	rd := redis.NewRedisConnection()
 	bizz := business.NewSdToBankService(rabbit, rd, service, Domain)
 
-	sdToBankWf := wf.NewSdToBankWorkflow(bizz)
+	accCh := make(chan *pb.AccountInformation)
+
+	balSvc := business.NewBalanceService(rd, accCh)
+	accSvc := business.NewAccountService(rd, accCh)
+
+	sdToBankWf := wf.NewSdToBankWorkflow(bizz, balSvc, accSvc)
 
 	worker.RegisterWorkflowWithOptions(sdToBankWf.SdToBankWorkflow, workflow.RegisterOptions{Name: business.SdToBankWorkflowName})
 	worker.RegisterActivity(sdToBankWf.Block)
